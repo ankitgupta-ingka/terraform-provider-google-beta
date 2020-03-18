@@ -142,6 +142,66 @@ CIDR-formatted string.`,
 				Description: `The priority of routes advertised to this BGP peer.
 Where there is more than one matching route of maximum
 length, the routes with the lowest priority value win.`,
+				Default: 100,
+			},
+			"bfd": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Optional:    true,
+				Description: `BFD configuration for the BGP peering.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"session_initialization_mode": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringInSlice([]string{"ACTIVE", "DISABLED", "PASSIVE"}, false),
+							Description: `The BFD session initialization mode for
+this BGP peer. If set to 'ACTIVE', the Cloud Router will initiate the
+BFD session for this BGP peer. If set to 'PASSIVE', the Cloud Router
+will wait for the peer router to initiate the BFD session for this
+BGP peer. If set to 'DISABLED', BFD is disabled for this BGP peer.`,
+						},
+						"min_receive_interval": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Description: `The minimum interval, in milliseconds, between
+BFD control packets received from the peer router. The actual value
+is negotiated between the two routers and is equal to the greater of
+this value and the transmit interval of the other router. If set,
+this value must be between 100 and 30000. The default is 300.`,
+							Default: 300,
+						},
+						"min_transmit_interval": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Description: `The minimum interval, in milliseconds, between
+BFD control packets transmitted to the peer router. The actual value
+is negotiated between the two routers and is equal to the greater of
+this value and the corresponding receive interval of the other
+router. If set, this value must be between 100 and 30000. The default
+is 300.`,
+							Default: 300,
+						},
+						"multiplier": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Description: `The number of consecutive BFD packets that must be missed
+before BFD declares that a peer is unavailable. If set, the value
+must be a value between 2 and 16. The default is 3.`,
+							Default: 3,
+						},
+					},
+				},
+			},
+			"enable": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Description: `The status of the BGP peer connection. If set to FALSE,
+any active session with the peer is terminated and all associated
+routing information is removed. If set to TRUE, the peer connection
+can be established with routing information. The default is TRUE.`,
+				Default: true,
 			},
 			"region": {
 				Type:             schema.TypeString,
@@ -233,6 +293,18 @@ func resourceComputeRouterBgpPeerCreate(d *schema.ResourceData, meta interface{}
 		return err
 	} else if v, ok := d.GetOkExists("advertised_ip_ranges"); ok || !reflect.DeepEqual(v, advertisedIpRangesProp) {
 		obj["advertisedIpRanges"] = advertisedIpRangesProp
+	}
+	bfdProp, err := expandComputeRouterBgpPeerBfd(d.Get("bfd"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("bfd"); !isEmptyValue(reflect.ValueOf(bfdProp)) && (ok || !reflect.DeepEqual(v, bfdProp)) {
+		obj["bfd"] = bfdProp
+	}
+	enableProp, err := expandComputeRouterBgpPeerEnable(d.Get("enable"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("enable"); ok || !reflect.DeepEqual(v, enableProp) {
+		obj["enable"] = enableProp
 	}
 
 	lockName, err := replaceVars(d, config, "router/{{region}}/{{router}}")
@@ -347,6 +419,12 @@ func resourceComputeRouterBgpPeerRead(d *schema.ResourceData, meta interface{}) 
 	if err := d.Set("management_type", flattenComputeRouterBgpPeerManagementType(res["managementType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RouterBgpPeer: %s", err)
 	}
+	if err := d.Set("bfd", flattenComputeRouterBgpPeerBfd(res["bfd"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterBgpPeer: %s", err)
+	}
+	if err := d.Set("enable", flattenComputeRouterBgpPeerEnable(res["enable"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterBgpPeer: %s", err)
+	}
 
 	return nil
 }
@@ -371,6 +449,18 @@ func resourceComputeRouterBgpPeerUpdate(d *schema.ResourceData, meta interface{}
 		return err
 	} else if v, ok := d.GetOkExists("advertised_ip_ranges"); ok || !reflect.DeepEqual(v, advertisedIpRangesProp) {
 		obj["advertisedIpRanges"] = advertisedIpRangesProp
+	}
+	bfdProp, err := expandComputeRouterBgpPeerBfd(d.Get("bfd"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("bfd"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, bfdProp)) {
+		obj["bfd"] = bfdProp
+	}
+	enableProp, err := expandComputeRouterBgpPeerEnable(d.Get("enable"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("enable"); ok || !reflect.DeepEqual(v, enableProp) {
+		obj["enable"] = enableProp
 	}
 
 	lockName, err := replaceVars(d, config, "router/{{region}}/{{router}}")
@@ -549,6 +639,68 @@ func flattenComputeRouterBgpPeerManagementType(v interface{}, d *schema.Resource
 	return v
 }
 
+func flattenComputeRouterBgpPeerBfd(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["min_receive_interval"] =
+		flattenComputeRouterBgpPeerBfdMinReceiveInterval(original["minReceiveInterval"], d, config)
+	transformed["min_transmit_interval"] =
+		flattenComputeRouterBgpPeerBfdMinTransmitInterval(original["minTransmitInterval"], d, config)
+	transformed["multiplier"] =
+		flattenComputeRouterBgpPeerBfdMultiplier(original["multiplier"], d, config)
+	transformed["session_initialization_mode"] =
+		flattenComputeRouterBgpPeerBfdSessionInitializationMode(original["sessionInitializationMode"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeRouterBgpPeerBfdMinReceiveInterval(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+			return intVal
+		} // let terraform core handle it if we can't convert the string to an int.
+	}
+	return v
+}
+
+func flattenComputeRouterBgpPeerBfdMinTransmitInterval(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+			return intVal
+		} // let terraform core handle it if we can't convert the string to an int.
+	}
+	return v
+}
+
+func flattenComputeRouterBgpPeerBfdMultiplier(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+			return intVal
+		} // let terraform core handle it if we can't convert the string to an int.
+	}
+	return v
+}
+
+func flattenComputeRouterBgpPeerBfdSessionInitializationMode(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenComputeRouterBgpPeerEnable(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	b, err := strconv.ParseBool(v.(string))
+	if err != nil {
+		// If we can't convert it into a bool return value as is and let caller handle it
+		return v
+	}
+	return b
+}
+
 func expandComputeRouterBgpPeerName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
@@ -611,6 +763,66 @@ func expandComputeRouterBgpPeerAdvertisedIpRangesRange(v interface{}, d Terrafor
 }
 
 func expandComputeRouterBgpPeerAdvertisedIpRangesDescription(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRouterBgpPeerBfd(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedMinReceiveInterval, err := expandComputeRouterBgpPeerBfdMinReceiveInterval(original["min_receive_interval"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMinReceiveInterval); val.IsValid() && !isEmptyValue(val) {
+		transformed["minReceiveInterval"] = transformedMinReceiveInterval
+	}
+
+	transformedMinTransmitInterval, err := expandComputeRouterBgpPeerBfdMinTransmitInterval(original["min_transmit_interval"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMinTransmitInterval); val.IsValid() && !isEmptyValue(val) {
+		transformed["minTransmitInterval"] = transformedMinTransmitInterval
+	}
+
+	transformedMultiplier, err := expandComputeRouterBgpPeerBfdMultiplier(original["multiplier"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMultiplier); val.IsValid() && !isEmptyValue(val) {
+		transformed["multiplier"] = transformedMultiplier
+	}
+
+	transformedSessionInitializationMode, err := expandComputeRouterBgpPeerBfdSessionInitializationMode(original["session_initialization_mode"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSessionInitializationMode); val.IsValid() && !isEmptyValue(val) {
+		transformed["sessionInitializationMode"] = transformedSessionInitializationMode
+	}
+
+	return transformed, nil
+}
+
+func expandComputeRouterBgpPeerBfdMinReceiveInterval(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRouterBgpPeerBfdMinTransmitInterval(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRouterBgpPeerBfdMultiplier(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRouterBgpPeerBfdSessionInitializationMode(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRouterBgpPeerEnable(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 

@@ -27,6 +27,7 @@ func TestAccBigtableAppProfile_bigtableAppProfileMulticlusterExample(t *testing.
 	t.Parallel()
 
 	context := map[string]interface{}{
+		"allow_destroy": true,
 		"random_suffix": randString(t, 10),
 	}
 
@@ -58,6 +59,8 @@ resource "google_bigtable_instance" "instance" {
     num_nodes    = 3
     storage_type = "HDD"
   }
+
+  allow_destroy  = "%{allow_destroy}"
 }
 
 resource "google_bigtable_app_profile" "ap" {
@@ -74,6 +77,7 @@ func TestAccBigtableAppProfile_bigtableAppProfileSingleclusterExample(t *testing
 	t.Parallel()
 
 	context := map[string]interface{}{
+		"allow_destroy": true,
 		"random_suffix": randString(t, 10),
 	}
 
@@ -105,6 +109,8 @@ resource "google_bigtable_instance" "instance" {
     num_nodes    = 3
     storage_type = "HDD"
   }
+
+  allow_destroy  = "%{allow_destroy}"
 }
 
 resource "google_bigtable_app_profile" "ap" {

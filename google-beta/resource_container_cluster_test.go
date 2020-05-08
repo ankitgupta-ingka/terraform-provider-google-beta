@@ -776,6 +776,7 @@ func TestAccContainerCluster_withWorkloadMetadataConfig(t *testing.T) {
 	t.Parallel()
 
 	clusterName := fmt.Sprintf("tf-test-cluster-%s", randString(t, 10))
+	pid := getTestProjectFromEnv()
 
 	vcrTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -794,6 +795,14 @@ func TestAccContainerCluster_withWorkloadMetadataConfig(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"min_master_version"},
+			},
+			{
+				Config: testAccContainerCluster_updateWorkloadMetadataConfig(pid, clusterName, "SECURE"),
+			},
+			{
+				ResourceName:      "google_container_cluster.with_workload_metadata_config",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -1477,14 +1486,6 @@ func TestAccContainerCluster_withWorkloadIdentityConfig(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config: testAccContainerCluster_updateWorkloadMetadataConfig(pid, clusterName, "SECURE"),
-			},
-			{
-				ResourceName:      "google_container_cluster.with_workload_identity_config",
-				ImportState:       true,
-				ImportStateVerify: true,
-			},
-			{
 				Config: testAccContainerCluster_updateWorkloadIdentityConfig(pid, clusterName, false),
 			},
 			{
@@ -1502,7 +1503,6 @@ func TestAccContainerCluster_withWorkloadIdentityConfig(t *testing.T) {
 			},
 		},
 	})
-
 }
 
 func TestAccContainerCluster_withBinaryAuthorization(t *testing.T) {
@@ -2613,7 +2613,7 @@ data "google_project" "project" {
   project_id = "%s"
 }
 
-resource "google_container_cluster" "with_workload_identity_config" {
+resource "google_container_cluster" "with_workload_metadata_config" {
   name               = "%s"
   location           = "us-central1-a"
   initial_node_count = 1

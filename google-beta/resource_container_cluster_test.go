@@ -1045,6 +1045,8 @@ func TestAccContainerCluster_withNodePoolAutoscaling(t *testing.T) {
 }
 
 func TestAccContainerCluster_withNodePoolNamePrefix(t *testing.T) {
+	// Computed name within terraform
+	skipIfVcr(t)
 	t.Parallel()
 
 	clusterName := fmt.Sprintf("tf-test-cluster-%s", randString(t, 10))

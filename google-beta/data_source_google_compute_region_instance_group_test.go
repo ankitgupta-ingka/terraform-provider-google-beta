@@ -8,6 +8,7 @@ import (
 )
 
 func TestAccDataSourceRegionInstanceGroup(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 	name := "acctest-" + randString(t, 6)
 	vcrTest(t, resource.TestCase{

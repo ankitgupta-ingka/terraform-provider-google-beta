@@ -96,6 +96,7 @@ func TestAccInstanceGroupManager_update(t *testing.T) {
 }
 
 func TestAccInstanceGroupManager_updateLifecycle(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 
 	tag1 := "tag1"
@@ -128,6 +129,7 @@ func TestAccInstanceGroupManager_updateLifecycle(t *testing.T) {
 }
 
 func TestAccInstanceGroupManager_updatePolicy(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 
 	igm := fmt.Sprintf("igm-test-%s", randString(t, 10))
@@ -175,6 +177,7 @@ func TestAccInstanceGroupManager_updatePolicy(t *testing.T) {
 }
 
 func TestAccInstanceGroupManager_separateRegions(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 
 	igm1 := fmt.Sprintf("igm-test-%s", randString(t, 10))

@@ -90,6 +90,7 @@ func TestAccFolderIamBinding_multiple(t *testing.T) {
 
 // Test that multiple IAM bindings can be applied to a folder all at once
 func TestAccFolderIamBinding_multipleAtOnce(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 
 	org := getTestOrgFromEnv(t)
@@ -176,6 +177,7 @@ func TestAccFolderIamBinding_update(t *testing.T) {
 
 // Test that an IAM binding can be removed from a folder
 func TestAccFolderIamBinding_remove(t *testing.T) {
+	skipIfVcr(t)
 	t.Parallel()
 
 	org := getTestOrgFromEnv(t)
